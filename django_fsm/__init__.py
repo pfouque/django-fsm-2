@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     IntegerField = models.IntegerField[int, int]
     ForeignKey = models.ForeignKey[Any, Any]
 
+    _StateValue = str | int
     _Instance = models.Model  # TODO: use real type
     _ToDo = Any  # TODO: use real type
 else:
@@ -83,10 +84,10 @@ class ConcurrentTransition(Exception):
 class Transition:
     def __init__(
         self,
-        method: Callable[..., str | int | None],
-        source: str | int | Sequence[str | int] | State,
-        target: str | int,
-        on_error: str | int | None,
+        method: Callable[..., _StateValue | Any],
+        source: _StateValue | Sequence[_StateValue] | State,
+        target: _StateValue,
+        on_error: _StateValue | None,
         conditions: list[Callable[[_Instance], bool]],
         permission: str | Callable[[_Instance, UserWithPermissions], bool] | None,
         custom: dict[str, _StrOrPromise],
@@ -414,7 +415,7 @@ class FSMFieldMixin(_Field):
         if not issubclass(sender, self.base_cls):
             return
 
-        def is_field_transition_method(attr):
+        def is_field_transition_method(attr: _ToDo) -> bool:
             return (
                 (inspect.ismethod(attr) or inspect.isfunction(attr))
                 and hasattr(attr, "_django_fsm")
@@ -528,7 +529,7 @@ class ConcurrentTransitionMixin(_Model):
     def state_fields(self) -> Iterable[Any]:
         return filter(lambda field: isinstance(field, FSMFieldMixin), self._meta.fields)
 
-    def _do_update(self, base_qs, using, pk_val, values, update_fields, forced_update):
+    def _do_update(self, base_qs, using, pk_val, values, update_fields, forced_update):  # type: ignore[no-untyped-def]
         # _do_update is called once for each model class in the inheritance hierarchy.
         # We can only filter the base_qs on state fields (can be more than one!) present in this particular model.
 
@@ -572,13 +573,13 @@ class ConcurrentTransitionMixin(_Model):
 
 def transition(
     field: FSMFieldMixin,
-    source: str | int | Sequence[str | int] | State = "*",
+    source: str | int | Sequence[str | int] = "*",
     target: str | int | State | None = None,
     on_error: str | int | None = None,
     conditions: list[Callable[[Any], bool]] = [],
     permission: str | Callable[[models.Model, UserWithPermissions], bool] | None = None,
     custom: dict[str, _StrOrPromise] = {},
-) -> _ToDo:
+) -> Callable[[Any], Any]:
     """
     Method decorator to mark allowed transitions.
 
@@ -586,7 +587,7 @@ def transition(
     has not changed after the function call.
     """
 
-    def inner_transition(func):
+    def inner_transition(func: _ToDo) -> _ToDo:
         wrapper_installed, fsm_meta = True, getattr(func, "_django_fsm", None)
         if not fsm_meta:
             wrapper_installed = False
@@ -647,7 +648,7 @@ def has_transition_perm(bound_method: _ToDo, user: UserWithPermissions) -> bool:
 
 
 class State:
-    def get_state(self, model, transition, result, args=[], kwargs={}):
+    def get_state(self, model: _Model, transition: Transition, result: Any, args: Any = [], kwargs: Any = {}) -> _ToDo:
         raise NotImplementedError
 
 
@@ -655,7 +656,7 @@ class RETURN_VALUE(State):
     def __init__(self, *allowed_states: Sequence[str | int]) -> None:
         self.allowed_states = allowed_states if allowed_states else None
 
-    def get_state(self, model, transition, result, args=[], kwargs={}):
+    def get_state(self, model: _Model, transition: Transition, result: Any, args: Any = [], kwargs: Any = {}) -> _ToDo:
         if self.allowed_states is not None:
             if result not in self.allowed_states:
                 raise InvalidResultState(f"{result} is not in list of allowed states\n{self.allowed_states}")
@@ -667,7 +668,9 @@ class GET_STATE(State):
         self.func = func
         self.allowed_states = states
 
-    def get_state(self, model, transition, result, args=[], kwargs={}):
+    def get_state(
+        self, model: _Model, transition: Transition, result: _StateValue | Any, args: Any = [], kwargs: Any = {}
+    ) -> _ToDo:
         result_state = self.func(model, *args, **kwargs)
         if self.allowed_states is not None:
             if result_state not in self.allowed_states:
