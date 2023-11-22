@@ -8,8 +8,6 @@ import inspect
 from functools import partialmethod
 from functools import wraps
 from typing import TYPE_CHECKING
-from typing import Any
-from typing import Callable
 
 from django.apps import apps as django_apps
 from django.db import models
@@ -36,6 +34,13 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Sequence
+    from typing import Any
+
+    from django.contrib.auth.models import AbstractBaseUser
+    from django.utils.functional import _StrOrPromise
+
     _Model = models.Model
 else:
     _Model = object
@@ -63,7 +68,16 @@ class ConcurrentTransition(Exception):
 
 
 class Transition:
-    def __init__(self, method: Callable, source, target, on_error, conditions, permission, custom) -> None:
+    def __init__(
+        self,
+        method: Callable,
+        source: str | int | Sequence[str | int] | State,
+        target: str | int | State | None,
+        on_error: str | int | None,
+        conditions: list[Callable[[Any], bool]],
+        permission: str | Callable[[models.Model, AbstractBaseUser], bool] | None,
+        custom: dict[str, _StrOrPromise],
+    ) -> None:
         self.method = method
         self.source = source
         self.target = target
@@ -532,7 +546,15 @@ class ConcurrentTransitionMixin(_Model):
         self._update_initial_state()
 
 
-def transition(field, source="*", target=None, on_error=None, conditions=[], permission=None, custom={}):
+def transition(
+    field,
+    source: str | int | Sequence[str | int] | State = "*",
+    target: str | int | State | None = None,
+    on_error: str | int | None = None,
+    conditions: list[Callable[[Any], bool]] = [],
+    permission: str | Callable[[models.Model, AbstractBaseUser], bool] | None = None,
+    custom: dict[str, _StrOrPromise] = {},
+):
     """
     Method decorator to mark allowed transitions.
 
