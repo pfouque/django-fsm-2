@@ -45,8 +45,8 @@ if TYPE_CHECKING:
 
     _Model = models.Model
     _Field = models.Field[Any, Any]
-    CharField = models.CharField[str, str]
-    IntegerField = models.IntegerField[int, int]
+    CharField = models.CharField[Any, Any]
+    IntegerField = models.IntegerField[Any, Any]
     ForeignKey = models.ForeignKey[Any, Any]
 
     _StateValue = str | int
@@ -179,10 +179,10 @@ class FSMMeta:
 
     def add_transition(
         self,
-        method: Callable[..., str | int | None],
+        method: Callable[..., _StateValue | Any],
         source: str,
-        target: str | int,
-        on_error: str | int | None = None,
+        target: _StateValue,
+        on_error: _StateValue | None = None,
         conditions: list[Callable[[_Instance], bool]] = [],
         permission: str | Callable[[_Instance, UserWithPermissions], bool] | None = None,
         custom: dict[str, _StrOrPromise] = {},
@@ -237,7 +237,7 @@ class FSMMeta:
         else:
             return bool(transition.has_perm(instance, user))
 
-    def next_state(self, current_state: str) -> str | int:
+    def next_state(self, current_state: str) -> _StateValue:
         transition = self.get_transition(current_state)
 
         if transition is None:
@@ -245,7 +245,7 @@ class FSMMeta:
 
         return transition.target
 
-    def exception_state(self, current_state: str) -> str | int | None:
+    def exception_state(self, current_state: str) -> _StateValue | None:
         transition = self.get_transition(current_state)
 
         if transition is None:
@@ -573,9 +573,9 @@ class ConcurrentTransitionMixin(_Model):
 
 def transition(
     field: FSMFieldMixin,
-    source: str | int | Sequence[str | int] = "*",
-    target: str | int | State | None = None,
-    on_error: str | int | None = None,
+    source: _StateValue | Sequence[_StateValue] = "*",
+    target: _StateValue | State | None = None,
+    on_error: _StateValue | None = None,
     conditions: list[Callable[[Any], bool]] = [],
     permission: str | Callable[[models.Model, UserWithPermissions], bool] | None = None,
     custom: dict[str, _StrOrPromise] = {},
@@ -653,7 +653,7 @@ class State:
 
 
 class RETURN_VALUE(State):
-    def __init__(self, *allowed_states: Sequence[str | int]) -> None:
+    def __init__(self, *allowed_states: Sequence[_StateValue]) -> None:
         self.allowed_states = allowed_states if allowed_states else None
 
     def get_state(self, model: _Model, transition: Transition, result: Any, args: Any = [], kwargs: Any = {}) -> _ToDo:
@@ -664,7 +664,7 @@ class RETURN_VALUE(State):
 
 
 class GET_STATE(State):
-    def __init__(self, func: Callable[..., str | int], states: Sequence[str | int] | None = None) -> None:
+    def __init__(self, func: Callable[..., _StateValue | Any], states: Sequence[_StateValue] | None = None) -> None:
         self.func = func
         self.allowed_states = states
 
