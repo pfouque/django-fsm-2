@@ -67,8 +67,9 @@ extend-select = [
     "RET",
     "C",
     # "B",
+    "TCH",  # trailing comma
 ]
-fixable = ["I"]
+fixable = ["I", "TCH"]
 
 
 [tool.ruff.lint.isort]

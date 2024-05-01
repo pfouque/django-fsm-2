@@ -5,11 +5,6 @@ State tracking functionality for django models
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
-from collections.abc import Collection
-from collections.abc import Generator
-from collections.abc import Iterable
-from collections.abc import Sequence
 from functools import partialmethod
 from functools import wraps
 from typing import TYPE_CHECKING
@@ -41,6 +36,11 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Collection
+    from collections.abc import Generator
+    from collections.abc import Iterable
+    from collections.abc import Sequence
     from typing import Self
 
     from _typeshed import Incomplete
@@ -121,10 +121,10 @@ class Transition:
             return True
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.name)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, str):
             return other == self.name
         if isinstance(other, Transition):
@@ -240,8 +240,8 @@ class FSMMeta:
 
         if not transition:
             return False
-        else:
-            return bool(transition.has_perm(instance, user))
+
+        return bool(transition.has_perm(instance, user))
 
     def next_state(self, current_state: str) -> _StateValue:
         transition = self.get_transition(current_state)
@@ -309,7 +309,7 @@ class FSMFieldMixin(_Field):
     def get_state(self, instance: _Instance) -> Any:
         # The state field may be deferred. We delegate the logic of figuring this out
         # and loading the deferred field on-demand to Django's built-in DeferredAttribute class.
-        return DeferredAttribute(self).__get__(instance)  # type: ignore[attr-defined]
+        return DeferredAttribute(self).__get__(instance)
 
     def set_state(self, instance: _Instance, state: str) -> None:
         instance.__dict__[self.name] = state
@@ -479,14 +479,14 @@ class FSMModelMixin(_FSMModel):
     Mixin that allows refresh_from_db for models with fsm protected fields
     """
 
-    def _get_protected_fsm_fields(self):
-        def is_fsm_and_protected(f):
+    def _get_protected_fsm_fields(self) -> set[str]:
+        def is_fsm_and_protected(f: object) -> Any:
             return isinstance(f, FSMFieldMixin) and f.protected
 
-        protected_fields = filter(is_fsm_and_protected, self._meta.concrete_fields)
+        protected_fields: Iterable[Any] = filter(is_fsm_and_protected, self._meta.concrete_fields)  # type: ignore[attr-defined, arg-type]
         return {f.attname for f in protected_fields}
 
-    def refresh_from_db(self, *args, **kwargs):
+    def refresh_from_db(self, *args: Any, **kwargs: Any) -> None:
         fields = kwargs.pop("fields", None)
 
         # Use provided fields, if not set then reload all non-deferred fields.0
@@ -495,7 +495,7 @@ class FSMModelMixin(_FSMModel):
             protected_fields = self._get_protected_fsm_fields()
             skipped_fields = deferred_fields.union(protected_fields)
 
-            fields = [f.attname for f in self._meta.concrete_fields if f.attname not in skipped_fields]
+            fields = [f.attname for f in self._meta.concrete_fields if f.attname not in skipped_fields]  # type: ignore[attr-defined]
 
         kwargs["fields"] = fields
         super().refresh_from_db(*args, **kwargs)
@@ -538,9 +538,9 @@ class ConcurrentTransitionMixin(_FSMModel):
     def _do_update(
         self,
         base_qs: QuerySet[Self],
-        using: Any,
+        using: str | None,
         pk_val: Any,
-        values: Collection[Any] | None,
+        values: Collection[tuple[_Field, type[models.Model] | None, Any]],
         update_fields: Iterable[str] | None,
         forced_update: bool,
     ) -> bool:
@@ -553,7 +553,7 @@ class ConcurrentTransitionMixin(_FSMModel):
         # state filter will be used to narrow down the standard filter checking only PK
         state_filter = {field.attname: self.__initial_states[field.attname] for field in filter_on}
 
-        updated: bool = super()._do_update(  # type: ignore[misc]
+        updated: bool = super()._do_update(
             base_qs=base_qs.filter(**state_filter),
             using=using,
             pk_val=pk_val,

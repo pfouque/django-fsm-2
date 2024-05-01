@@ -50,9 +50,9 @@ repos:
       - id: ruff
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.1
+    rev: v1.10.0
     hooks:
       - id: mypy
         additional_dependencies:
-          - django-stubs==4.2.6
+          - django-stubs==5.0.0
           - django-guardian
